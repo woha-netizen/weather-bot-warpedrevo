@@ -1,0 +1,279 @@
+try:
+    import discord  # type: ignore
+    from discord import app_commands  # type: ignore
+    from discord.ext import commands  # type: ignore
+except ImportError:
+    print("Warning: discord.py is not installed. Install it with: pip install discord.py")
+    import sys
+    sys.exit(1)
+import logging
+import os
+import json
+import re
+try:
+    import aiohttp  # type: ignore
+except ImportError:
+    print("Warning: aiohttp is not installed. Install it with: pip install aiohttp")
+    aiohttp = None
+try:
+    from dotenv import load_dotenv  # type: ignore
+except ImportError:
+    print("Warning: python-dotenv is not installed. Install it with: pip install python-dotenv")
+    load_dotenv = lambda: None
+
+try:
+    load_dotenv()
+except Exception as e:
+    print(f"Warning: Could not load .env file: {e}")
+
+token = os.getenv('DISCORD_TOKEN')
+
+# =============================================================================
+# LOGGING SETUP
+# =============================================================================
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
+
+# =============================================================================
+# INTENTS
+# =============================================================================
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+# =============================================================================
+# YOUR RAW LOCATIONS STRING
+# =============================================================================
+RAW_LOCATIONS = """ A  A Coruña     Aachen     Aarhus     Abbeville     Aberdeen UK     Aberdeen SD     Aberdeen WA     Abidjan     Abilene     Abu Dhabi     Abuja     Acapulco     Accra     Adamstown     Addis Ababa     Adelaide     Adelboden     Agadir     Agde     Agen     Agios Nikolaos     Agra     Agrigento     Agropoli     Ahmedabad     AiguesMortes     AixenProvence     AixlesBains     Ajaccio     Ajman     Akron     Al Ain     Alameda     Alanya     Alaró     Albacete     Albany NY     Albenga     Albi     Albufeira     Albuquerque     Alcudia     Aleppo     Alessandria     Ålesund     Alexandria VA     Alexandria Egypt     Algeciras     Alghero     Algiers     Alicante     Alkmaar     Allentown     Almaty     Alofi     Alpe d'Huez     Altea     Altoona     Amalfi     Amarillo     Amersfoort     Amiens     Amman     Amsterdam     Anaheim     Anchorage     Ancona     Andorra la Vella     Angers     Angoulême     Ankara     Ann Arbor     Annapolis     Annecy     Antalya     Antananarivo     Antibes     Antigua Guatemala     Antwerp     Anzio     Aosta     Apia     Aqaba     Arcachon     Arequipa     Arezzo     Arica     Arles     Arlington VA     Arlington TX     Arnhem     Arras     Arrecife     Asbury Park     Ascoli Piceno     Ashdod     Ashgabat     Ashkelon     Asmara     Aspen     Asti     Astoria     Asunción     Athens     Atlanta     Atlantic City     Auckland     Augsburg     Augusta GA     Augusta ME     Aurora CO     Aurora IL     Austin     Auxerre     Avarua     Aveiro     Avellino     Avignon     Ayia Napa      B  Bad Gastein     Baden     Baghdad     Bakersfield     Baku     Baltimore     Bamako     Bandar Seri Begawan     Banff     Bangalore     Bangkok     Bangui     Banjul     Barcelona     Bari     Basel     Basseterre     Bastia     Bath     Baton Rouge     Batumi     Bayonne     Beaufort     BeaulieusurMer     Beaumont     Beaune     Beersheba     Beijing     Beirut     Belek     Belfast     Belfort     Belgrade     Belize City     Bellingham     Bellinzona     Belluno     Belmopan     Belo Horizonte     Bend     Benalmadena     Benidorm     Bergamo     Bergen     Bergerac     Berkeley     Berlin     Bern     Besançon     Bethlehem     Beverly Hills     Béziers     Biarritz     Bielefeld     Big Sur     Bilbao     Billings     Biloxi     Birmingham UK     Birmingham US     Bishkek     Bismarck     Bissau     Blanes     Bled     Blois     Boca Raton     Bochum     Bodrum     Bogotá     Boise     Bologna     Bolzano     Bonifacio     Bonn     Bordeaux     Bordighera     Bormio     Boston     Boulder     BoulognesurMer     Bourges     Bowling Green     Boynton Beach     Bozeman     Bradenton     Braga     Brampton     Brasilia     Bratislava     Braunschweig     Brazzaville     Breda     Bregenz     Brela     Bremen     Bremerhaven     Brescia     Brest     Briançon     Bridgeport     Bridgetown     Brighton     Brindisi     Brisbane     Bristol     Brno     Brownsville     Bruges     Brussels     Bucharest     Budapest     Budva     Buenos Aires     Buffalo     Bujumbura     Burbank     Burgas     Burlington VT     Butte      C  Cabo San Lucas     Cádiz     Caen     Cagliari     CagnessurMer     Cairns     Cairo     Calais     Calgary     Cali     Calistoga     Cambridge UK     Cambridge MA     Campinas     Canberra     Cancun     Cannes     Cannon Beach     Canterbury     Cape Coral     Cape May     Cape Town     Caracas     Carcassonne     Cardiff     Carlsbad     CarmelbytheSea     Cartagena Colombia     Cartagena Spain     Casablanca     Catania     Cayenne     Cebu City     Cedar Rapids     Chamonix     Chandler     Chania     Charleston WV     Charleston SC     Charlotte     Charlottetown     Chartres     Chattanooga     Chiang Mai     Chiang Rai     Chicago     Chiclayo     Chișinău     Christchurch     Chula Vista     Chur     Cincinnati     Civitavecchia     Clarksville     Clearwater     ClermontFerrand     Cleveland     Cocoa Beach     Coimbra     Collioure     Colmar     Cologne     Colombo     Colorado Springs     Columbia SC     Columbus OH     Como     Conakry     Copenhagen     Córdoba Argentina     Córdoba Spain     Corfu     Cork     Corpus Christi     Cortina d'Ampezzo     Cosenza     Courchevel     Courmayeur     Coventry     Cozumel     CransMontana     Cremona     Cusco      D  Da Nang     Dakar     Dallas     Damascus     Dar es Salaam     Darmstadt     Darwin     Davos     Dayton     Daytona Beach     Deauville     Delft     Delhi     Delray Beach     Denpasar     Denton     Denver     Des Moines     Destin     Detroit     Dhaka     Dieppe     Dijon     Dili     Djibouti     Dodoma     Doha     Dortmund     Douala     Dover DE     Dresden     Dubai     Dublin     Dubrovnik     Duisburg     Duluth     Dundee     Dunedin     Durham UK     Durham NC     Dushanbe     Düsseldorf      E  Edinburgh     Edmonton     Eilat     Eindhoven     El Paso     Encinitas     Engelberg     Erfurt     Erie     Esbjerg     Essaouira     Essen     Estepona     Eugene     Eureka     Evansville     Everett     Exeter      F  Faro     Fargo     Ferrara     Fethiye     Fez     Finale Ligure     Flagstaff     Florence     Fort Collins     Fort Lauderdale     Fort Myers     Fort Worth     FortdeFrance     Forte dei Marmi     Foz do Iguaçu     Frankfurt     Fredericton     Freetown     Freiburg     Fresno     Funchal      G  Gaborone     Gainesville     Galveston     Galway     Garden Grove     Garland     Gdansk     Geelong     Geneva     Genoa     George Town Cayman     Ghent     Gijón     Girona     Gitega     Giza     Glasgow     Glendale AZ     Glendale CA     Gold Coast     Gothenburg     Göttingen     Granada Spain     Grand Junction     Grand Rapids     Graz     Green Bay     Greensboro     Grenoble     Grindelwald     Groningen     Guadalajara     Guangzhou     Guatemala City     Guayaquil     Gulf Shores     Gulfport      H  Haarlem     Haifa     Halifax     Hamburg     Hamilton Bermuda     Hamilton Canada     Hamilton NZ     Hangzhou     Hannover     Hanoi     Harare     Hartford     Hastings     Hattiesburg     Havana     Healdsburg     Heidelberg     Helena     Helsinki     Henderson     Heraklion     Herceg Novi     Hermosa Beach     Hialeah     Hilton Head     Hiroshima     Ho Chi Minh City     Hoi An     Hobart     Honiara     Honolulu     Houston     Hua Hin     Hue     Huntington Beach     Huntsville     Hurghada     Hvar      I  Ibiza Town     Iloilo City     Innsbruck     Interlaken     Inverness     Ioannina     Irvine     Ischgl     Islamabad     Islamorada     Istanbul     İzmir      J  Jackson MS     Jackson WY     Jacksonville     Jaipur     Jakarta     Jeddah     Jekyll Island     Jena     Jerez de la Frontera     Jersey City     Jerusalem     Johannesburg     Juba     Juneau     Jupiter FL      K  Kabul     Kahului     Kaiserslautern     Kalamata     Kalamazoo     Kaliningrad     Kampala     Kansas City     Karachi     Karlsruhe     Kassel     Kathmandu     Kaunas     Kazan     Kelowna     Kemer     Key Largo     Key West     Khartoum     Kiel     Kigali     Kilkenny     Kingston Jamaica     Kingston Canada     Kinshasa     Kissimmee     Kitzbühel     Klagenfurt     Knoxville     Kobe     Koblenz     Kolkata     Koper     Kotor     Krabi     Krakow     Kuala Lumpur     Kuwait City     Kyiv     Kyoto      L  La Ceiba     La Paz     La Rochelle     La Serena     La Spezia     Lagos Nigeria     Lagos Portugal     Laguna Beach     Lahore     Lakeland     Lancaster UK     Lansing     Laramie     Laredo     Larnaca     Las Vegas     Lausanne     Le Havre     Le Mans     Lecce     Leeds     Leicester     Leiden     Leipzig     León     Les Deux Alpes     Lethbridge     Leuven     Lexington KY     Libreville     Liège     Lienz     Lihue     Lille     Lilongwe     Lima     Limassol     Limerick     Limoges     Lincoln NE     Linz     Lisbon     Little Rock     Liverpool     Livigno     Livorno     Ljubljana     Lloret de Mar     Locarno     Lodz     Logroño     Lomé     London Canada     London UK     Long Beach CA     Los Angeles     Louisville     Luanda     Lubbock     Lübeck     Lublin     Lucca     Lucerne     Lugano     Lusaka     Luxembourg     Luxor     Lyon      M  Maastricht     Machu Picchu     Madison     Madrid     Malaga     Male     Malibu     Malmö     Mammoth Lakes     Managua     Manama     Manchester UK     Manila     Mannheim     Manteo     Maputo     Mar del Plata     Maracaibo     Marbella     Marco Island     Marrakesh     Marseille     Maseru     Matera     Mayrhofen     Mbabane     McKinney     Mecca     Medan     Medellín     Medina     Megève     Melbourne Australia     Melbourne FL     Memphis     Menton     Merano     Meribel     Mesa     Messina     Metz     Mexico City     Miami     Milan     Milwaukee     Minneapolis     Minsk     Missoula     Moab     Mobile     Modena     Mogadishu     Monaco City     Moncton     Monrovia Liberia     Montauk     Montego Bay     Monterey     Montevideo     Montgomery     Montpellier     Montreal     Montreux     Moroni     Moscow     Mumbai     Munich     Münster     Murcia     Murfreesboro     Muscat     Mykonos     Myrtle Beach      N  Nadi     Nagoya     Nairobi     Nantes     Napa     Naples Italy     Naples FL     Narbonne     Nashua     Nashville     Nassau     N'Djamena     Negril     Netanya     New Haven     New Orleans     New Smyrna Beach     New York City     Newark     Newcastle Australia     Newcastle UK     Newport RI     Newport Beach     Nha Trang     Niagara Falls NY     Niamey     Nice     Nicosia     Nijmegen     Nimes     Noosa Heads     Norfolk VA     Norman     Norwich     Noto     Nottingham     Nouakchott     Nouméa     Novosibirsk     Nukualofa     Nuuk     Nürnberg     Nyon      O  Oakland     Oaxaca     Ocean City MD     Oceanside     Ocho Rios     Odense     Odessa Ukraine     Ogden     Oklahoma City     Olbia     Olympia     Omaha     Orange Beach     Oranjestad Aruba     Orlando     Orléans     Osaka     Oslo     Ostrava     Ottawa     Ouagadougou     Oulu     Oviedo     Oxford     Oxnard      P  Padova     Pago Pago     Palembang     Palermo     Palikir     Palm Beach     Palm Springs     Palma de Mallorca     Palo Alto     Pamplona     Panama City FL     Panama City Panama     Papeete     Paphos     Paramaribo     Paris     Parma     Pasadena     Pattaya     Pau     Pensacola     Peoria     Perpignan     Perth Australia     Perugia     Pescara     Petra     Philadelphia     Phnom Penh     Phoenix     Phuket City     Pisa     Pismo Beach     Pittsburgh     Plano     Playa del Carmen     Plovdiv     Plymouth     Plzeň     Podgorica     PointeàPitre     Poitiers     Port Louis     Port Moresby     Port of Spain     Port Vila     PortauPrince     Portimão     Portland OR     Portland ME     Porto     PortoNovo     Portsmouth UK     Positano     Potsdam     Poznan     Prague     Praia     Prato     Prescott     Pretoria     Prince George     Pristina     Providence     Provincetown     Provo     Puerto Vallarta     Pula     Punta Arenas     Punta Cana     Punta del Este     Pyongyang      Q  Quebec City     Quezon City     Quito      R  Rabat     Raleigh     Ramallah     Rapid City     Ras alKhaimah     Ravenna     Rawai Beach     Rayong     Reading UK     Red Deer     Redding     Regensburg     Reggio Calabria     Regina     Reims     Rennes     Reno     Rethymno     Reykjavik     Rhodes     Richmond VA     Riga     Rijeka     Rimini     Rio de Janeiro     Riyadh     Roanoke     Rochester NY     Rock Hill     Rockford     Rome     Ronda     Rosario     Roseau     Rostock     Rotterdam     Rouen     Rovaniemi     Rovinj      S  Saalbach     Saarbrücken     SaasFee     Sacramento     Sag Harbor     Saguenay     Saint Paul     SaintMalo     SaintTropez     Salamanca     Salem OR     Salerno     Salou     Salt Lake City     Salta     Salvador     Salzburg     San Antonio     San Diego     San Francisco     San José Costa Rica     San Jose CA     San Juan PR     San Luis Obispo     San Sebastián     Sanaa     Sanibel Island     Sanremo     Santa Barbara     Santa Cruz de Tenerife     Santa Fe     Santa Monica     Santa Rosa     Santander     Santiago Chile     Santiago de Compostela     Santo Domingo     Sao Paulo     São Tomé     Sapporo     Sarajevo     Sarasota     Saratoga Springs     Saskatoon     Savannah     Savona     Schladming     Scottsdale     Seattle     Sedona     Seoul     Serre Chevalier     Sète     Seville     Shanghai     Sharjah     Sharm elSheikh     Sheffield     Shenzhen     Sherbrooke     Šibenik     Side     Siem Reap     Siena     Siesta Key     Singapore     Sioux Falls     Sitges     Skiathos     Skopje     Sochi     Sofia     Sölden     Soller     Sopot     Sorrento     Southampton UK     Split     Spokane     Springfield IL     Springfield MO     St Anton     St Augustine     St George's Grenada     St John's Canada     St Louis     St Moritz     St Petersburg FL     Stamford     Stanley     Stavanger     Stockholm     Stockton     Strasbourg     Stuttgart     Sucre     Suez     Surabaya     Suva     Sveti Stefan     Swansea     Sydney Australia     Szczecin      T  Taipei     Tallahassee     Tallinn     Tampa     Tampere     Tangier     Taormina     Taranto     Tarifa     Tarragona     Tartu     Tashkent     Tauranga     Tbilisi     Tegucigalpa     Tehran     Tel Aviv     Temecula     Tempe     Teramo     Terni     Teton Village     The Hague     Thessaloniki     Thimphu     Thunder Bay     Tignes     Tijuana     Tilburg     Tinos     Tirana     Tivat     Tokyo     Toledo Spain     Toledo OH     Toronto     Torremolinos     Torrevieja     Toruń     Toulon     Toulouse     Tours     Townsville     Trani     Trapani     Trento     Trenton     Treviso     Trier     Trieste     Tripoli     Trogir     Tromsø     Trondheim     Troy     Troyes     Tucson     Tulsa     Tulum     Turin     Turku     Twin Falls     Tyler      U  Ubud     Udine     Ulaanbaatar     Ulm     Uppsala     Urbino     Ushuaia     Utica     Utrecht      V  Vaduz     Val d'Isère     Val Thorens     Valence     Valencia Spain     Valladolid     Valletta     Valparaíso     Vancouver Canada     Vancouver WA     Varanasi     Varese     Varna     Venice Italy     Venice FL     Ventimiglia     Ventura     Verbier     Verona     Versailles     Vevey     Viareggio     Vicenza     Victoria Canada     Victoria Seychelles     Vienna     Vientiane     Vigo     Vilnius     Viña del Mar     Virginia Beach     Vladivostok     Volos      W  Waco     Warsaw     Washington DC     Waterford     Wellington NZ     West Palm Beach     Whitehorse     Wichita     Wiesbaden     Willemstad     Wilmington NC     Windhoek     Windsor     Winnipeg     WinstonSalem     Winterthur     Wollongong     Worcester UK     Worcester MA     Wrightsville Beach     Wroclaw     Würzburg      Y  Yakima     Yamoussoukro     Yaoundé     Yekaterinburg     Yellowknife     Yerevan     Yogyakarta     Yokohama     Yonkers     York UK     Youngstown     Yuma      Z  Zadar     Zagreb     Zakopane     Zanzibar     Zaragoza     Zell am See     Zermatt     Zurich     Zwolle    """
+
+# Parse supported locations
+parts = re.split(r'\s{2,}', RAW_LOCATIONS.strip())
+SUPPORTED_LOCATIONS = [p.strip() for p in parts if p.strip() and not (len(p.strip()) == 1 and p.strip().isupper())]
+SUPPORTED_SET = set(SUPPORTED_LOCATIONS)
+
+# =============================================================================
+# USER LOCATION DATA
+# =============================================================================
+USER_DATA_FILE = "user_locations.json"
+user_locations = {}
+
+def load_user_locations():
+    global user_locations
+    if os.path.exists(USER_DATA_FILE):
+        with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            user_locations = {int(k): v for k, v in data.items()}
+
+def save_user_locations():
+    with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump({str(k): v for k, v in user_locations.items()}, f, ensure_ascii=False)
+
+# =============================================================================
+# LOCATION MATCHING
+# =============================================================================
+def find_matching_location(continent: str, state: str, city: str) -> str | None:
+    candidates = []
+    city = city.strip()
+
+    if city in SUPPORTED_SET:
+        candidates.append(city)
+
+    if state:
+        state_clean = state.strip().upper()
+        if f"{city} {state_clean}" in SUPPORTED_SET:
+            candidates.append(f"{city} {state_clean}")
+        if f"{city} {state}" in SUPPORTED_SET:
+            candidates.append(f"{city} {state}")
+
+    if continent:
+        if f"{city} {continent.strip()}" in SUPPORTED_SET:
+            candidates.append(f"{city} {continent.strip()}")
+
+    city_lower = city.lower()
+    for loc in SUPPORTED_LOCATIONS:
+        if city_lower in loc.lower() and loc not in candidates:
+            candidates.append(loc)
+
+    return candidates[0] if candidates else None
+
+# =============================================================================
+# WEATHER FETCH (using your exact API key)
+# =============================================================================
+API_KEY = "d8ee345fe826344f17a935d916bf2b20"
+API_BASE = "https://api.openweathermap.org/data/2.5"
+
+async def fetch_weather(location: str):
+    url = f"{API_BASE}/weather?q={location}&appid={API_KEY}&units=metric"
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status != 200:
+                return f"❌ Weather service error (HTTP {response.status})."
+
+            data = await response.json()
+
+            if data.get("cod") != 200:
+                return f"❌ {data.get('message', 'City not found')}"
+
+            city_name = data.get("name", location)
+            country = data.get("sys", {}).get("country", "")
+            temp = data["main"]["temp"]
+            feels_like = data["main"]["feels_like"]
+            description = data["weather"][0]["description"]
+            humidity = data["main"]["humidity"]
+            wind_speed = data["wind"].get("speed", 0)
+
+            embed = discord.Embed(
+                title=f"🌤️ Weather in {city_name}" + (f", {country}" if country else ""),
+                description=description.capitalize(),
+                color=0x00bfff
+            )
+            embed.add_field(name="Temperature", value=f"**{temp}°C** (feels like **{feels_like}°C**)", inline=True)
+            embed.add_field(name="Humidity", value=f"**{humidity}%**", inline=True)
+            embed.add_field(name="Wind", value=f"**{wind_speed} m/s**", inline=True)
+            embed.set_footer(text="Powered by OpenWeatherMap")
+            return embed
+
+# =============================================================================
+# ORIGINAL COMMANDS (prefix !)
+# =============================================================================
+secret_role = "Gamer"
+
+@bot.event
+async def on_ready():
+    load_user_locations()
+    await bot.tree.sync()   # Sync slash commands
+    print(f"We are ready to go in, {bot.user.name}")
+    print(f"   Loaded {len(SUPPORTED_LOCATIONS)} supported locations")
+    print("   Prefix commands (!hello, !poll, etc.) and Slash commands (/weather, /setlocation) are active")
+
+
+@bot.event
+async def on_member_join(member):
+    await member.send(f"Welcome to the server {member.name}")
+
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    if "shit" in message.content.lower():
+        await message.delete()
+        await message.channel.send(f"{message.author.mention} - dont use that word!")
+
+    await bot.process_commands(message)
+
+
+@bot.command()
+async def hello(ctx):
+    await ctx.send(f"Hello {ctx.author.mention}!")
+
+
+@bot.command()
+async def assign(ctx):
+    role = discord.utils.get(ctx.guild.roles, name=secret_role)
+    if role:
+        await ctx.author.add_roles(role)
+        await ctx.send(f"{ctx.author.mention} is now assigned to {secret_role}")
+    else:
+        await ctx.send("Role doesn't exist")
+
+
+@bot.command()
+async def remove(ctx):
+    role = discord.utils.get(ctx.guild.roles, name=secret_role)
+    if role:
+        await ctx.author.remove_roles(role)
+        await ctx.send(f"{ctx.author.mention} has had the {secret_role} removed")
+    else:
+        await ctx.send("Role doesn't exist")
+
+
+@bot.command()
+async def dm(ctx, *, msg):
+    await ctx.author.send(f"You said {msg}")
+
+
+@bot.command()
+async def reply(ctx):
+    await ctx.reply("This is a reply to your message!")
+
+
+@bot.command()
+async def poll(ctx, *, question):
+    embed = discord.Embed(title="New Poll", description=question)
+    poll_message = await ctx.send(embed=embed)
+    await poll_message.add_reaction("👍")
+    await poll_message.add_reaction("👎")
+
+
+@bot.command()
+@commands.has_role(secret_role)
+async def secret(ctx):
+    await ctx.send("Welcome to the club!")
+
+
+@secret.error
+async def secret_error(ctx, error):
+    if isinstance(error, commands.MissingRole):
+        await ctx.send("You do not have permission to do that!")
+
+
+# =============================================================================
+# NEW SLASH COMMANDS (Weather System)
+# =============================================================================
+@bot.tree.command(name="setlocation", description="Set your default location (Continent, State, City)")
+@app_commands.describe(
+    continent="Continent (optional)",
+    state="State / Province / Country code (e.g. UK, SD, CA)",
+    city="City name from the list"
+)
+async def setlocation(interaction: discord.Interaction, continent: str, state: str, city: str):
+    matched = find_matching_location(continent, state, city)
+    if matched:
+        user_locations[interaction.user.id] = matched
+        save_user_locations()
+        embed = discord.Embed(title="✅ Location Saved", description=f"Your default location is now **{matched}**", color=0x00ff00)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    else:
+        await interaction.response.send_message(
+            "❌ No matching location found.\nTry exact city + state (e.g. Aberdeen SD)", 
+            ephemeral=True
+        )
+
+
+@bot.tree.command(name="weather", description="Get current weather for your saved location or override")
+@app_commands.describe(city="Optional city name override")
+async def weather(interaction: discord.Interaction, city: str = None):
+    if city is None:
+        if interaction.user.id not in user_locations:
+            await interaction.response.send_message(
+                "⚠️ No location set! Use `/setlocation Continent State City` first.", 
+                ephemeral=True
+            )
+            return
+        location = user_locations[interaction.user.id]
+    else:
+        matched = find_matching_location("", "", city)
+        location = matched if matched else city
+
+    result = await fetch_weather(location)
+
+    if isinstance(result, discord.Embed):
+        await interaction.response.send_message(embed=result)
+    else:
+        await interaction.response.send_message(result, ephemeral=True)
+
+
+# =============================================================================
+# RUN THE BOT
+# =============================================================================
+if __name__ == "__main__":
+    if not token:
+        print("❌ DISCORD_TOKEN not found in .env file!")
+    else:
+        print("🚀 Starting Discord Bot with Weather + Original Features...")
+        bot.run(token, log_handler=handler, log_level=logging.DEBUG)
